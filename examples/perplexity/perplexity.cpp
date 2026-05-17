@@ -4,6 +4,7 @@
 #include "llama.h"
 
 #include <algorithm>
+#include <chrono>
 #include <array>
 #include <atomic>
 #include <cmath>

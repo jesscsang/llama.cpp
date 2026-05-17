@@ -11,6 +11,7 @@
 #include "llama.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cinttypes>
 #include <climits>
 #include <cmath>
@@ -442,10 +443,10 @@ std::string string_strip(const std::string & str) {
 }
 
 std::string string_get_sortable_timestamp() {
-    using clock = std::chrono::system_clock;
+    using sys_clock = std::chrono::system_clock;
 
-    const clock::time_point current_time = clock::now();
-    const time_t as_time_t = clock::to_time_t(current_time);
+    const sys_clock::time_point current_time = sys_clock::now();
+    const time_t as_time_t = sys_clock::to_time_t(current_time);
     char timestamp_no_ns[100];
     std::strftime(timestamp_no_ns, 100, "%Y_%m_%d-%H_%M_%S", std::localtime(&as_time_t));
 
