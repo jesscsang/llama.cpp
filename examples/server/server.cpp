@@ -187,6 +187,7 @@ struct server_slot {
     bool stopped_limit  = false;
 
     bool oaicompat = false;
+    bool oaicompat_tool_call = false;
 
     std::string oaicompat_model;
     std::string stopping_word;
@@ -222,6 +223,7 @@ struct server_slot {
         stopped_word       = false;
         stopped_limit      = false;
         stopping_word      = "";
+        oaicompat_tool_call = false;
         n_past             = 0;
         n_sent_text        = 0;
         n_sent_token_probs = 0;
@@ -852,9 +854,13 @@ struct server_context {
         if (data.count("__oaicompat") != 0) {
             slot.oaicompat = true;
             slot.oaicompat_model = json_value(data, "model", std::string(DEFAULT_OAICOMPAT_MODEL));
+            slot.oaicompat_tool_call =
+                data.contains("tools") && data["tools"].is_array() && !data["tools"].empty() &&
+                json_value(data, "tool_choice", std::string("auto")) != "none";
         } else {
             slot.oaicompat = false;
             slot.oaicompat_model = "";
+            slot.oaicompat_tool_call = false;
         }
 
         slot.params.stream             = json_value(data, "stream",            false);
@@ -1111,7 +1117,7 @@ struct server_context {
             }
 
             slot.add_token(result);
-            if (slot.params.stream) {
+            if (slot.params.stream && !slot.oaicompat_tool_call) {
                 send_partial_response(slot, result);
             }
         }
@@ -1283,7 +1289,7 @@ struct server_context {
         res.error    = false;
         res.stop     = true;
         res.data     = json {
-            {"content",             !slot.params.stream ? slot.generated_text : ""},
+            {"content",             (!slot.params.stream || slot.oaicompat_tool_call) ? slot.generated_text : ""},
             {"id_slot",             slot.id},
             {"stop",                true},
             {"model",               params.model_alias},
@@ -3000,9 +3006,9 @@ int main(int argc, char ** argv) {
 
             ctx_server.queue_results.remove_waiting_task_ids(task_ids);
         } else {
-            const auto chunked_content_provider = [task_ids, &ctx_server, completion_id](size_t, httplib::DataSink & sink) {
+            const auto chunked_content_provider = [task_ids, &ctx_server, completion_id, data](size_t, httplib::DataSink & sink) {
                 ctx_server.receive_cmpl_results_stream(task_ids, [&](const server_task_result & result) -> bool {
-                    std::vector<json> result_array = format_partial_response_oaicompat(result.data, completion_id);
+                    std::vector<json> result_array = format_partial_response_oaicompat(result.data, completion_id, data);
                     for (auto & event_data : result_array) {
                         if (event_data.empty()) {
                             continue; // skip the stop token
