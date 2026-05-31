@@ -54,6 +54,15 @@ add_library(${TARGET} STATIC
     arg.cpp
     arg.h
     base64.hpp
+    chat-auto-parser-generator.cpp
+    chat-auto-parser-helpers.cpp
+    chat-auto-parser-helpers.h
+    chat-auto-parser.h
+    chat-diff-analyzer.cpp
+    chat-peg-parser.cpp
+    chat-peg-parser.h
+    chat.cpp
+    chat.h
     common.cpp
     common.h
     console.cpp
@@ -64,10 +73,27 @@ add_library(${TARGET} STATIC
     log.h
     ngram-cache.cpp
     ngram-cache.h
+    peg-parser.cpp
+    peg-parser.h
     sampling.cpp
     sampling.h
     train.cpp
     train.h
+    unicode.cpp
+    unicode.h
+    jinja/caps.cpp
+    jinja/caps.h
+    jinja/lexer.cpp
+    jinja/lexer.h
+    jinja/parser.cpp
+    jinja/parser.h
+    jinja/runtime.cpp
+    jinja/runtime.h
+    jinja/string.cpp
+    jinja/string.h
+    jinja/utils.h
+    jinja/value.cpp
+    jinja/value.h
     )
 
 if (BUILD_SHARED_LIBS)
@@ -86,5 +112,5 @@ if (LLAMA_CURL)
 endif ()
 
 target_include_directories(${TARGET} PUBLIC .)
-target_compile_features   (${TARGET} PUBLIC cxx_std_11)
+target_compile_features   (${TARGET} PUBLIC cxx_std_17)
 target_link_libraries     (${TARGET} PRIVATE ${LLAMA_COMMON_EXTRA_LIBS} PUBLIC llama Threads::Threads)

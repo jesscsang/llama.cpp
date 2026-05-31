@@ -5,6 +5,7 @@
 #include "llama.h"
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <sstream>
 
@@ -375,11 +376,28 @@ LLAMA_COMMON_ATTRIBUTE_FORMAT(1, 2)
 std::string string_format(const char * fmt, ...);
 
 std::vector<std::string> string_split(std::string input, char separator);
+std::vector<std::string> string_split(const std::string & str, const std::string & delimiter);
 
 std::string string_strip(const std::string & str);
 std::string string_get_sortable_timestamp();
+std::string string_join(const std::vector<std::string> & values, const std::string & separator);
+std::string string_repeat(const std::string & str, size_t n);
 
 void string_replace_all(std::string & s, const std::string & search, const std::string & replace);
+
+inline bool string_starts_with(std::string_view str, std::string_view prefix) {
+    return str.size() >= prefix.size() &&
+           str.compare(0, prefix.size(), prefix) == 0;
+}
+
+inline bool string_starts_with(std::string_view str, char prefix) {
+    return !str.empty() && str.front() == prefix;
+}
+
+inline bool string_ends_with(std::string_view str, std::string_view suffix) {
+    return str.size() >= suffix.size() &&
+           str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
 
 template<class T>
 static std::vector<T> string_split(const std::string & str, char delim) {
@@ -483,31 +501,46 @@ std::string common_detokenize(
 // Chat template utils
 //
 
-// same with llama_chat_message, but uses std::string
-struct common_chat_msg {
-    std::string role;
-    std::string content;
+enum common_grammar_trigger_type {
+    COMMON_GRAMMAR_TRIGGER_TYPE_TOKEN,
+    COMMON_GRAMMAR_TRIGGER_TYPE_WORD,
+    COMMON_GRAMMAR_TRIGGER_TYPE_PATTERN,
+    COMMON_GRAMMAR_TRIGGER_TYPE_PATTERN_FULL,
 };
 
-// Check if the template supplied via "--chat-template" is supported or not. Returns true if it's valid
+struct common_grammar_trigger {
+    common_grammar_trigger_type type;
+    std::string value;
+    llama_token token = LLAMA_TOKEN_NULL;
+};
+
+// reasoning API response format (not to be confused as chat template's reasoning format)
+// only used by server
+enum common_reasoning_format {
+    COMMON_REASONING_FORMAT_NONE,
+    COMMON_REASONING_FORMAT_AUTO,
+    COMMON_REASONING_FORMAT_DEEPSEEK_LEGACY,
+    COMMON_REASONING_FORMAT_DEEPSEEK,
+};
+
+struct common_chat_msg;
+
+#include "chat.h"
+
+// Compatibility wrappers for older BitNet callers that used common.h directly.
 bool common_chat_verify_template(const std::string & tmpl);
 
-// CPP wrapper for llama_chat_apply_template
-// If the built-in template is not supported, we default to chatml
-// If the custom "tmpl" is not supported, we throw an error
 std::string common_chat_apply_template(const struct llama_model * model,
         const std::string & tmpl,
         const std::vector<common_chat_msg> & chat,
         bool add_ass);
 
-// Format single message, while taking into account the position of that message in chat history
 std::string common_chat_format_single(const struct llama_model * model,
         const std::string & tmpl,
         const std::vector<common_chat_msg> & past_msg,
         const common_chat_msg & new_msg,
         bool add_ass);
 
-// Returns an example of formatted chat
 std::string common_chat_format_example(const struct llama_model * model,
         const std::string & tmpl);
 

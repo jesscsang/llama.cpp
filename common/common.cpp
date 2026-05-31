@@ -430,6 +430,21 @@ std::vector<std::string> string_split(std::string input, char separator) {
     return parts;
 }
 
+std::vector<std::string> string_split(const std::string & str, const std::string & delimiter) {
+    std::vector<std::string> parts;
+    size_t start = 0;
+    size_t end = str.find(delimiter);
+
+    while (end != std::string::npos) {
+        parts.push_back(str.substr(start, end - start));
+        start = end + delimiter.length();
+        end = str.find(delimiter, start);
+    }
+
+    parts.push_back(str.substr(start));
+    return parts;
+}
+
 std::string string_strip(const std::string & str) {
     size_t start = 0;
     size_t end = str.size();
@@ -473,6 +488,26 @@ void string_replace_all(std::string & s, const std::string & search, const std::
     }
     builder.append(s, last_pos, std::string::npos);
     s = std::move(builder);
+}
+
+std::string string_join(const std::vector<std::string> & values, const std::string & separator) {
+    std::ostringstream result;
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (i > 0) {
+            result << separator;
+        }
+        result << values[i];
+    }
+    return result.str();
+}
+
+std::string string_repeat(const std::string & str, size_t n) {
+    std::string result;
+    result.reserve(str.length() * n);
+    for (size_t i = 0; i < n; ++i) {
+        result += str;
+    }
+    return result;
 }
 
 std::string string_from(bool value) {
@@ -1563,53 +1598,19 @@ std::string common_detokenize(llama_context * ctx, const std::vector<llama_token
 //
 
 bool common_chat_verify_template(const std::string & tmpl) {
-    llama_chat_message chat[] = {{"user", "test"}};
-    int res = llama_chat_apply_template(nullptr, tmpl.c_str(), chat, 1, true, nullptr, 0);
-    return res >= 0;
+    return common_chat_verify_template(tmpl, true);
 }
 
 std::string common_chat_apply_template(const struct llama_model * model,
         const std::string & tmpl,
         const std::vector<common_chat_msg> & msgs,
         bool add_ass) {
-    int alloc_size = 0;
-    bool fallback = false; // indicate if we must fallback to default chatml
-    std::vector<llama_chat_message> chat;
-    for (auto & msg : msgs) {
-        chat.push_back({msg.role.c_str(), msg.content.c_str()});
-        alloc_size += (msg.role.size() + msg.content.size()) * 1.25;
-    }
-
-    const char * ptr_tmpl = tmpl.empty() ? nullptr : tmpl.c_str();
-    std::vector<char> buf(alloc_size);
-
-    // run the first time to get the total output length
-    int32_t res = llama_chat_apply_template(model, ptr_tmpl, chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-
-    // error: chat template is not supported
-    if (res < 0) {
-        if (ptr_tmpl != nullptr) {
-            // if the custom "tmpl" is not supported, we throw an error
-            // this is a bit redundant (for good), since we're not sure if user validated the custom template with llama_chat_verify_template()
-            throw std::runtime_error("this custom template is not supported");
-        } else {
-            // If the built-in template is not supported, we default to chatml
-            res = llama_chat_apply_template(nullptr, "chatml", chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-            fallback = true;
-        }
-    }
-
-    // if it turns out that our buffer is too small, we resize it
-    if ((size_t) res > buf.size()) {
-        buf.resize(res);
-        res = llama_chat_apply_template(
-            fallback ? nullptr : model,
-            fallback ? "chatml" : ptr_tmpl,
-            chat.data(), chat.size(), add_ass, buf.data(), buf.size());
-    }
-
-    std::string formatted_chat(buf.data(), res);
-    return formatted_chat;
+    auto tmpls = common_chat_templates_init(model, tmpl);
+    common_chat_templates_inputs inputs;
+    inputs.messages = msgs;
+    inputs.add_generation_prompt = add_ass;
+    inputs.use_jinja = true;
+    return common_chat_templates_apply(tmpls.get(), inputs).prompt;
 }
 
 std::string common_chat_format_single(const struct llama_model * model,
@@ -1634,13 +1635,8 @@ std::string common_chat_format_single(const struct llama_model * model,
 
 std::string common_chat_format_example(const struct llama_model * model,
         const std::string & tmpl) {
-    std::vector<common_chat_msg> msgs = {
-        {"system",    "You are a helpful assistant"},
-        {"user",      "Hello"},
-        {"assistant", "Hi there"},
-        {"user",      "How are you?"},
-    };
-    return common_chat_apply_template(model, tmpl, msgs, true);
+    auto tmpls = common_chat_templates_init(model, tmpl);
+    return common_chat_format_example(tmpls.get(), true, {});
 }
 
 //
