@@ -83,6 +83,22 @@ bool common_utf8_is_complete(const std::string & s) {
     return false;
 }
 
+std::vector<uint32_t> common_unicode_cpts_from_utf8(const std::string & utf8) {
+    std::vector<uint32_t> result;
+    result.reserve(utf8.size());
+
+    for (size_t offset = 0; offset < utf8.size();) {
+        utf8_parse_result parsed = common_parse_utf8_codepoint(utf8, offset);
+        if (parsed.status != utf8_parse_result::SUCCESS) {
+            throw std::invalid_argument("invalid utf8");
+        }
+        result.push_back(parsed.codepoint);
+        offset += parsed.bytes_consumed;
+    }
+
+    return result;
+}
+
 std::string common_unicode_cpts_to_utf8(const std::vector<uint32_t> & cps) {
     std::string result;
     for (size_t i = 0; i < cps.size(); ++i) {

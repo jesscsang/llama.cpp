@@ -28,3 +28,14 @@ utf8_parse_result common_parse_utf8_codepoint(std::string_view input, size_t off
 
 std::string common_unicode_cpts_to_utf8(const std::vector<uint32_t> & cps);
 std::string common_unicode_cpt_to_utf8(uint32_t cpt);
+std::vector<uint32_t> common_unicode_cpts_from_utf8(const std::string & utf8);
+
+// Compatibility with older examples that included src/unicode.h through the
+// common include path before the upstream common unicode helpers were added.
+inline std::string unicode_cpt_to_utf8(uint32_t cpt) {
+    return common_unicode_cpt_to_utf8(cpt);
+}
+
+inline std::vector<uint32_t> unicode_cpts_from_utf8(const std::string & utf8) {
+    return common_unicode_cpts_from_utf8(utf8);
+}
